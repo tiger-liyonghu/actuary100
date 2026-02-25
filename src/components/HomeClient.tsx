@@ -1,10 +1,11 @@
 'use client'
 
-import { useRef, useState } from 'react'
-import Link from 'next/link'
+import { useRef, useState, useCallback } from 'react'
 import SearchBar from './SearchBar'
 import BackgroundGraph from './BackgroundGraph'
+import ProfilePanel from './ProfilePanel'
 import type { GraphFilters, CompanyType, TitleType, RegionType } from '@/lib/api'
+import type { Executive } from '@/types'
 
 const COMPANY_OPTS: { value: CompanyType; label: string }[] = [
   { value: 'all',      label: '所有公司' },
@@ -69,12 +70,16 @@ export default function HomeClient() {
     titleType:   'all',
     region:      'all',
   })
+  const [selectedId, setSelectedId] = useState<number | null>(null)
+
+  const handleNodeClick = useCallback((exec: Executive) => {
+    setSelectedId(exec.id)
+  }, [])
 
   return (
     <div className="flex h-screen overflow-hidden bg-zinc-950">
       {/* ── Left sidebar ── */}
       <aside className="flex w-52 flex-shrink-0 flex-col border-r border-zinc-800/60 bg-zinc-950 px-4 py-6">
-        {/* Logo */}
         <div className="mb-6">
           <h1 className="text-xl font-bold text-white">
             Actuary<span className="text-blue-400">100</span>
@@ -82,12 +87,10 @@ export default function HomeClient() {
           <p className="mt-0.5 text-[10px] text-zinc-600">保险行业高管关系图谱</p>
         </div>
 
-        {/* Search */}
         <div className="mb-6">
-          <SearchBar placeholder="搜索高管…" />
+          <SearchBar placeholder="搜索高管…" onSelect={id => setSelectedId(id)} />
         </div>
 
-        {/* Filters */}
         <div className="flex flex-col gap-5">
           <Section
             label="公司类型"
@@ -109,7 +112,6 @@ export default function HomeClient() {
           />
         </div>
 
-        {/* Stats */}
         <div className="mt-auto border-t border-zinc-800/60 pt-4 text-xs text-zinc-600">
           <div>1,494+ 高管</div>
           <div className="mt-0.5">15,204+ 关系</div>
@@ -117,9 +119,17 @@ export default function HomeClient() {
         </div>
       </aside>
 
-      {/* ── Graph area ── */}
+      {/* ── Graph + Profile panel ── */}
       <div ref={graphRef} className="relative flex-1 overflow-hidden">
-        <BackgroundGraph filters={filters} containerRef={graphRef} />
+        <BackgroundGraph
+          filters={filters}
+          containerRef={graphRef}
+          onNodeClick={handleNodeClick}
+        />
+        <ProfilePanel
+          execId={selectedId}
+          onClose={() => setSelectedId(null)}
+        />
       </div>
     </div>
   )

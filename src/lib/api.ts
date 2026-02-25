@@ -3,10 +3,11 @@ import type { Executive, Relationship } from '@/types'
 
 export async function searchExecutives(query: string, limit = 20): Promise<Executive[]> {
   if (!query.trim()) return []
+  // Search by name OR company (supports both Chinese and English)
   const { data, error } = await supabase
     .from('executives')
     .select('id, name, title, company, region')
-    .ilike('name', `%${query}%`)
+    .or(`name.ilike.%${query}%,company.ilike.%${query}%,title.ilike.%${query}%`)
     .limit(limit)
   if (error) throw error
   return (data as Executive[]) ?? []

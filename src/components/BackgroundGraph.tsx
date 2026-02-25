@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import type { Executive, Relationship } from '@/types'
 import { getPreviewGraph, type GraphFilters } from '@/lib/api'
 
@@ -50,9 +49,10 @@ function hasActiveFilter(f: GraphFilters) {
 interface Props {
   filters: GraphFilters
   containerRef: React.RefObject<HTMLDivElement | null>
+  onNodeClick: (exec: Executive) => void
 }
 
-export default function BackgroundGraph({ filters, containerRef }: Props) {
+export default function BackgroundGraph({ filters, containerRef, onNodeClick }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animRef   = useRef<number>(0)
   const stateRef  = useRef<{
@@ -65,10 +65,11 @@ export default function BackgroundGraph({ filters, containerRef }: Props) {
   const [loading, setLoading] = useState(true)
   const [hovered, setHovered] = useState<Executive | null>(null)
   const filtersRef = useRef(filters)
-  const router = useRouter()
+  const onNodeClickRef = useRef(onNodeClick)
 
-  // keep filtersRef in sync so draw() always has the latest without re-running effect
+  // keep refs in sync so callbacks always have latest values without re-running effects
   useEffect(() => { filtersRef.current = filters }, [filters])
+  useEffect(() => { onNodeClickRef.current = onNodeClick }, [onNodeClick])
 
   // Load data once
   useEffect(() => {
@@ -257,7 +258,7 @@ export default function BackgroundGraph({ filters, containerRef }: Props) {
     const onClick = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect()
       const n = hit(e.clientX - rect.left, e.clientY - rect.top)
-      if (n) router.push(`/exec/${n.exec.id}`)
+      if (n) onNodeClickRef.current(n.exec)
     }
 
     canvas.addEventListener('mousemove', onMove)
@@ -282,11 +283,11 @@ export default function BackgroundGraph({ filters, containerRef }: Props) {
         </div>
       )}
       {hovered && (
-        <div className="pointer-events-none absolute bottom-4 right-4 z-20 rounded-lg border border-zinc-700 bg-zinc-900/90 px-3 py-2 text-xs shadow-xl backdrop-blur">
-          <div className="font-semibold text-white">{hovered.name}</div>
-          <div className="mt-0.5 text-zinc-400">{hovered.title}</div>
-          <div className="mt-0.5 text-zinc-500">{hovered.company}</div>
-          <div className="mt-1.5 text-zinc-600">点击查看详情 →</div>
+        <div className="pointer-events-none absolute bottom-4 left-1/2 z-20 -translate-x-1/2 rounded-lg border border-zinc-700 bg-zinc-900/90 px-3 py-2 text-xs shadow-xl backdrop-blur">
+          <span className="font-medium text-white">{hovered.name}</span>
+          <span className="mx-1.5 text-zinc-700">·</span>
+          <span className="text-zinc-400">{hovered.company}</span>
+          <span className="ml-2 text-zinc-600">点击查看 →</span>
         </div>
       )}
     </>

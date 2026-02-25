@@ -5,14 +5,20 @@ import { useRouter } from 'next/navigation'
 import { searchExecutives } from '@/lib/api'
 import type { Executive } from '@/types'
 
-export default function SearchBar({ placeholder = '搜索高管姓名…' }: { placeholder?: string }) {
-  const [query, setQuery] = useState('')
+interface Props {
+  placeholder?: string
+  /** If provided, selecting a result calls this instead of navigating */
+  onSelect?: (id: number) => void
+}
+
+export default function SearchBar({ placeholder = '搜索高管姓名…', onSelect }: Props) {
+  const [query, setQuery]     = useState('')
   const [results, setResults] = useState<Executive[]>([])
-  const [open, setOpen] = useState(false)
+  const [open, setOpen]       = useState(false)
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const ref = useRef<HTMLDivElement>(null)
+  const router  = useRouter()
+  const timer   = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const ref     = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (query.length < 1) { setResults([]); setOpen(false); return }
@@ -37,10 +43,14 @@ export default function SearchBar({ placeholder = '搜索高管姓名…' }: { p
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const go = (id: number) => {
+  const pick = (exec: Executive) => {
     setOpen(false)
     setQuery('')
-    router.push(`/exec/${id}`)
+    if (onSelect) {
+      onSelect(exec.id)
+    } else {
+      router.push(`/exec/${exec.id}`)
+    }
   }
 
   return (
@@ -51,23 +61,23 @@ export default function SearchBar({ placeholder = '搜索高管姓名…' }: { p
           value={query}
           onChange={e => setQuery(e.target.value)}
           placeholder={placeholder}
-          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 pr-10 text-sm text-white placeholder-zinc-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 pr-8 text-sm text-white placeholder-zinc-600 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
         />
         {loading && (
-          <div className="absolute right-3 top-3.5 h-4 w-4 animate-spin rounded-full border-2 border-zinc-600 border-t-blue-400" />
+          <div className="absolute right-2.5 top-2.5 h-3.5 w-3.5 animate-spin rounded-full border-2 border-zinc-700 border-t-blue-400" />
         )}
       </div>
 
       {open && results.length > 0 && (
-        <ul className="absolute z-50 mt-1 w-full overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900 shadow-xl">
+        <ul className="absolute z-50 mt-1 w-full max-w-sm overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl">
           {results.map(exec => (
             <li
               key={exec.id}
-              onClick={() => go(exec.id)}
-              className="flex cursor-pointer flex-col px-4 py-3 hover:bg-zinc-800"
+              onClick={() => pick(exec)}
+              className="flex cursor-pointer flex-col px-4 py-2.5 hover:bg-zinc-800"
             >
               <span className="text-sm font-medium text-white">{exec.name}</span>
-              <span className="mt-0.5 text-xs text-zinc-400">
+              <span className="mt-0.5 text-xs text-zinc-500 line-clamp-1">
                 {exec.title} · {exec.company}
               </span>
             </li>
@@ -76,8 +86,8 @@ export default function SearchBar({ placeholder = '搜索高管姓名…' }: { p
       )}
 
       {open && results.length === 0 && !loading && query.length > 0 && (
-        <div className="absolute z-50 mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-zinc-500 shadow-xl">
-          未找到相关高管
+        <div className="absolute z-50 mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-xs text-zinc-500 shadow-xl">
+          未找到相关高管 / No results found
         </div>
       )}
     </div>
