@@ -93,25 +93,56 @@ export async function getCompanyInternalEdges(executiveIds: number[]): Promise<R
   return (data as Relationship[]) ?? []
 }
 
-export async function getPreviewGraph(nodeLimit = 120): Promise<{ nodes: Executive[]; edges: Relationship[] }> {
-  // Fetch a sample of executives for the homepage background graph
-  const { data: nodes, error: e1 } = await supabase
+export type CompanyType = 'all' | 'life' | 'property'
+export type TitleType   = 'all' | 'board' | 'management' | 'actuary'
+export type RegionType  = 'all' | 'CN' | 'HK' | 'SG'
+
+export interface GraphFilters {
+  companyType: CompanyType
+  titleType:   TitleType
+  region:      RegionType
+}
+
+export async function getPreviewGraph(
+  nodeLimit = 150,
+  filters: GraphFilters = { companyType: 'all', titleType: 'all', region: 'all' }
+): Promise<{ nodes: Executive[]; edges: Relationship[] }> {
+  let q = supabase
     .from('executives')
     .select('id, name, title, company, region')
     .not('company', 'is', null)
-    .limit(nodeLimit)
 
+  // region
+  if (filters.region !== 'all') q = q.eq('region', filters.region)
+
+  // company type  (life / property based on company name keywords)
+  if (filters.companyType === 'life') {
+    q = q.or('company.ilike.%人寿%,company.ilike.%健康%,company.ilike.%养老%,company.ilike.%Life%,company.ilike.%life%')
+  } else if (filters.companyType === 'property') {
+    q = q.or('company.ilike.%财产%,company.ilike.%财险%,company.ilike.%再保%,company.ilike.%农业保险%,company.ilike.%Insurance%')
+  }
+
+  // title type
+  if (filters.titleType === 'board') {
+    q = q.or('title.ilike.%董事长%,title.ilike.%董事%,title.ilike.%监事%')
+  } else if (filters.titleType === 'management') {
+    q = q.or('title.ilike.%总裁%,title.ilike.%总经理%,title.ilike.%副总%,title.ilike.%CEO%,title.ilike.%chief%')
+  } else if (filters.titleType === 'actuary') {
+    q = q.or('title.ilike.%精算%,title.ilike.%Actuary%,title.ilike.%actuary%')
+  }
+
+  const { data: nodes, error: e1 } = await q.limit(nodeLimit)
   if (e1) throw e1
   const execs = (nodes as Executive[]) ?? []
   const ids = execs.map(n => n.id)
+  if (ids.length === 0) return { nodes: [], edges: [] }
 
-  // Fetch relationships only among these nodes
   const { data: edges, error: e2 } = await supabase
     .from('relationships')
     .select('*')
     .in('source_id', ids)
     .in('target_id', ids)
-    .limit(1000)
+    .limit(1200)
 
   if (e2) throw e2
   return { nodes: execs, edges: (edges as Relationship[]) ?? [] }

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Executive, Relationship } from '@/types'
-import { getPreviewGraph } from '@/lib/api'
+import { getPreviewGraph, type GraphFilters } from '@/lib/api'
 
 interface SimNode {
   exec: Executive
@@ -22,20 +22,57 @@ const EDGE_COLOR: Record<string, string> = {
   former:    'rgba(139,92,246,0.2)',
 }
 
-export default function BackgroundGraph() {
+interface Props {
+  filters: GraphFilters
+}
+
+export default function BackgroundGraph({ filters }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animRef   = useRef<number>(0)
+  const stateRef  = useRef<{
+    simNodes: SimNode[]
+    nodeById: Map<number, SimNode>
+    edges: Relationship[]
+    hoverId: number | null
+    frame: number
+  }>({ simNodes: [], nodeById: new Map(), edges: [], hoverId: null, frame: 0 })
   const [loading, setLoading] = useState(true)
   const [hovered, setHovered] = useState<Executive | null>(null)
   const router = useRouter()
 
+  // Re-initialise simulation whenever filters change
   useEffect(() => {
-    let mounted = true
-    let simNodes: SimNode[] = []
-    let edges: Relationship[] = []
-    let nodeById = new Map<number, SimNode>()
-    let frame = 0
+    setLoading(true)
+    setHovered(null)
 
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')!
+
+    getPreviewGraph(150, filters).then(({ nodes, edges }) => {
+      const W = window.innerWidth
+      const H = window.innerHeight
+
+      const simNodes: SimNode[] = nodes.map(exec => ({
+        exec,
+        x: 80 + Math.random() * (W - 160),
+        y: 80 + Math.random() * (H - 160),
+        vx: (Math.random() - 0.5) * 2,
+        vy: (Math.random() - 0.5) * 2,
+      }))
+      stateRef.current = {
+        simNodes,
+        nodeById: new Map(simNodes.map(n => [n.exec.id, n])),
+        edges,
+        hoverId: null,
+        frame: 0,
+      }
+      setLoading(false)
+    })
+  }, [filters.region, filters.companyType, filters.titleType])
+
+  // Canvas setup + animation loop (runs once)
+  useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')!
@@ -46,31 +83,11 @@ export default function BackgroundGraph() {
       canvas.height = window.innerHeight * dpr
       canvas.style.width  = window.innerWidth  + 'px'
       canvas.style.height = window.innerHeight + 'px'
-      ctx.scale(dpr, dpr)
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     }
     resize()
     window.addEventListener('resize', resize)
 
-    /* ── load data ── */
-    getPreviewGraph(150).then(({ nodes, edges: e }) => {
-      if (!mounted) return
-      edges = e
-      const W = window.innerWidth
-      const H = window.innerHeight
-
-      simNodes = nodes.map(exec => ({
-        exec,
-        x: 80 + Math.random() * (W - 160),
-        y: 80 + Math.random() * (H - 160),
-        vx: (Math.random() - 0.5) * 2,
-        vy: (Math.random() - 0.5) * 2,
-      }))
-      nodeById = new Map(simNodes.map(n => [n.exec.id, n]))
-      setLoading(false)
-      startLoop()
-    })
-
-    /* ── force simulation ── */
     const REPULSION  = 1800
     const SPRING_K   = 0.006
     const SPRING_LEN = 180
@@ -78,6 +95,7 @@ export default function BackgroundGraph() {
     const DAMPING    = 0.88
 
     const tick = () => {
+      const { simNodes, nodeById, edges } = stateRef.current
       const W = window.innerWidth, H = window.innerHeight
       const cx = W / 2, cy = H / 2
 
@@ -86,7 +104,7 @@ export default function BackgroundGraph() {
           const a = simNodes[i], b = simNodes[j]
           const dx = b.x - a.x, dy = b.y - a.y
           const d2 = dx * dx + dy * dy
-          if (d2 > 90000) continue   // skip far pairs (perf)
+          if (d2 > 90000) continue
           const d = Math.sqrt(d2) || 0.01
           const f = REPULSION / (d * d)
           a.vx -= (dx / d) * f; a.vy -= (dy / d) * f
@@ -113,13 +131,11 @@ export default function BackgroundGraph() {
       }
     }
 
-    let hoverId: number | null = null
-
-    const draw = (t: number) => {
+    const draw = () => {
+      const { simNodes, nodeById, edges, hoverId } = stateRef.current
       const W = window.innerWidth, H = window.innerHeight
       ctx.clearRect(0, 0, W, H)
 
-      /* faint edges */
       for (const e of edges) {
         const a = nodeById.get(e.source_id), b = nodeById.get(e.target_id)
         if (!a || !b) continue
@@ -128,9 +144,10 @@ export default function BackgroundGraph() {
         ctx.moveTo(a.x, a.y)
         ctx.lineTo(b.x, b.y)
         if (isHl) {
-          ctx.strokeStyle = 'rgba(148,163,184,0.7)'
+          ctx.strokeStyle = 'rgba(148,163,184,0.75)'
           ctx.lineWidth   = 1.5
-          ctx.shadowColor = '#94a3b8'; ctx.shadowBlur = 6
+          ctx.shadowColor = '#94a3b8'
+          ctx.shadowBlur  = 6
         } else {
           ctx.strokeStyle = EDGE_COLOR[e.type] ?? 'rgba(99,102,241,0.15)'
           ctx.lineWidth   = 1
@@ -140,53 +157,46 @@ export default function BackgroundGraph() {
       }
       ctx.shadowBlur = 0
 
-      /* nodes */
       for (const sn of simNodes) {
         const isHl = hoverId === sn.exec.id
         const r    = isHl ? 10 : 6
         const color = REGION_COLOR[sn.exec.region ?? 'CN'] ?? '#3b82f6'
 
-        if (isHl) {
-          ctx.shadowColor = color; ctx.shadowBlur = 16
-        }
+        if (isHl) { ctx.shadowColor = color; ctx.shadowBlur = 16 }
 
         const grad = ctx.createRadialGradient(sn.x - 1, sn.y - 1, 0, sn.x, sn.y, r)
-        grad.addColorStop(0, 'rgba(255,255,255,0.6)')
+        grad.addColorStop(0, 'rgba(255,255,255,0.55)')
         grad.addColorStop(1, color)
-
         ctx.globalAlpha = isHl ? 1 : 0.65
         ctx.beginPath()
         ctx.arc(sn.x, sn.y, r, 0, Math.PI * 2)
         ctx.fillStyle = grad
         ctx.fill()
-        ctx.shadowBlur  = 0
-        ctx.globalAlpha = 1
+        ctx.shadowBlur = 0; ctx.globalAlpha = 1
 
         if (isHl) {
-          ctx.font         = 'bold 11px sans-serif'
-          ctx.textAlign    = 'center'
-          ctx.textBaseline = 'bottom'
-          ctx.fillStyle    = 'rgba(0,0,0,0.6)'
+          ctx.font = 'bold 11px sans-serif'
+          ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'
+          ctx.fillStyle = 'rgba(0,0,0,0.7)'
           ctx.fillText(sn.exec.name, sn.x + 1, sn.y - r)
-          ctx.fillStyle    = '#f1f5f9'
+          ctx.fillStyle = '#f1f5f9'
           ctx.fillText(sn.exec.name, sn.x, sn.y - r - 1)
         }
       }
       ctx.globalAlpha = 1
     }
 
-    const loop = (t: number) => {
-      if (frame < 300) { tick(); frame++ }
-      draw(t)
+    const loop = () => {
+      const st = stateRef.current
+      if (st.frame < 300) { tick(); st.frame++ }
+      draw()
       animRef.current = requestAnimationFrame(loop)
     }
+    animRef.current = requestAnimationFrame(loop)
 
-    const startLoop = () => {
-      animRef.current = requestAnimationFrame(loop)
-    }
-
-    /* ── interaction ── */
-    const hit = (mx: number, my: number): SimNode | null => {
+    /* interactions */
+    const hit = (mx: number, my: number) => {
+      const { simNodes } = stateRef.current
       let best: SimNode | null = null, bestD = 14
       for (const n of simNodes) {
         const d = Math.hypot(mx - n.x, my - n.y)
@@ -194,10 +204,9 @@ export default function BackgroundGraph() {
       }
       return best
     }
-
     const onMove = (e: MouseEvent) => {
       const n = hit(e.clientX, e.clientY)
-      hoverId = n ? n.exec.id : null
+      stateRef.current.hoverId = n ? n.exec.id : null
       canvas.style.cursor = n ? 'pointer' : 'default'
       setHovered(n ? n.exec : null)
     }
@@ -210,7 +219,6 @@ export default function BackgroundGraph() {
     canvas.addEventListener('click', onClick)
 
     return () => {
-      mounted = false
       cancelAnimationFrame(animRef.current)
       canvas.removeEventListener('mousemove', onMove)
       canvas.removeEventListener('click', onClick)
@@ -220,13 +228,9 @@ export default function BackgroundGraph() {
 
   return (
     <>
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0"
-        style={{ background: 'transparent' }}
-      />
+      <canvas ref={canvasRef} className="absolute inset-0" />
       {loading && (
-        <div className="absolute inset-0 flex items-end justify-center pb-8">
+        <div className="absolute inset-0 flex items-center justify-center">
           <div className="flex items-center gap-2 text-xs text-zinc-600">
             <div className="h-3 w-3 animate-spin rounded-full border border-zinc-700 border-t-zinc-400" />
             加载关系图谱…
@@ -234,10 +238,7 @@ export default function BackgroundGraph() {
         </div>
       )}
       {hovered && (
-        <div
-          className="pointer-events-none absolute z-20 rounded-lg border border-zinc-700 bg-zinc-900/90 px-3 py-2 text-xs shadow-xl backdrop-blur"
-          style={{ left: 20, bottom: 20 }}
-        >
+        <div className="pointer-events-none absolute bottom-5 left-5 z-20 rounded-lg border border-zinc-700 bg-zinc-900/90 px-3 py-2 text-xs shadow-xl backdrop-blur">
           <div className="font-semibold text-white">{hovered.name}</div>
           <div className="mt-0.5 text-zinc-400">{hovered.title}</div>
           <div className="mt-0.5 text-zinc-500">{hovered.company}</div>
