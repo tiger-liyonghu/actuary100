@@ -43,7 +43,7 @@ function matchesFilters(exec: Executive, filters: GraphFilters): boolean {
 }
 
 function hasActiveFilter(f: GraphFilters) {
-  return f.companyType !== 'all' || f.titleType !== 'all' || f.region !== 'all'
+  return f.companyType !== 'all' || f.titleType !== 'all' || f.region !== 'all' || f.relationType !== 'all'
 }
 
 interface Props {
@@ -73,7 +73,7 @@ export default function BackgroundGraph({ filters, containerRef, onNodeClick }: 
 
   // Load data once
   useEffect(() => {
-    getPreviewGraph(200, { companyType: 'all', titleType: 'all', region: 'all' }).then(({ nodes, edges }) => {
+    getPreviewGraph(200, { companyType: 'all', titleType: 'all', region: 'all', relationType: 'all' }).then(({ nodes, edges }) => {
       const container = containerRef.current
       const W = container?.clientWidth  ?? window.innerWidth
       const H = container?.clientHeight ?? window.innerHeight
@@ -177,17 +177,18 @@ export default function BackgroundGraph({ filters, containerRef, onNodeClick }: 
       for (const e of edges) {
         const a = nodeById.get(e.source_id), b = nodeById.get(e.target_id)
         if (!a || !b) continue
-        const aMatch = !active || matchesFilters(a.exec, f)
-        const bMatch = !active || matchesFilters(b.exec, f)
-        const edgeMatch = aMatch && bMatch
-        const isHov = hoverId === e.source_id || hoverId === e.target_id
+        const aMatch    = !active || matchesFilters(a.exec, f)
+        const bMatch    = !active || matchesFilters(b.exec, f)
+        const relMatch  = f.relationType === 'all' || e.type === f.relationType
+        const edgeMatch = aMatch && bMatch && relMatch
+        const isHov     = hoverId === e.source_id || hoverId === e.target_id
 
         if (isHov) {
           ctx.strokeStyle = 'rgba(148,163,184,0.8)'; ctx.lineWidth = 1.5
           ctx.shadowColor = '#94a3b8'; ctx.shadowBlur = 6
         } else if (active && edgeMatch) {
           ctx.strokeStyle = EDGE_COLOR[e.type] ?? 'rgba(99,102,241,0.4)'
-          ctx.lineWidth = 1.2; ctx.shadowBlur = 0
+          ctx.lineWidth = 1.4; ctx.shadowBlur = 0
         } else if (active) {
           ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 0.5; ctx.shadowBlur = 0
         } else {

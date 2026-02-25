@@ -144,19 +144,21 @@ export async function getCompanyInternalEdges(executiveIds: number[]): Promise<R
   return (data as Relationship[]) ?? []
 }
 
-export type CompanyType = 'all' | 'life' | 'property'
-export type TitleType   = 'all' | 'board' | 'management' | 'actuary'
-export type RegionType  = 'all' | 'CN' | 'HK' | 'SG'
+export type CompanyType  = 'all' | 'life' | 'property'
+export type TitleType    = 'all' | 'board' | 'management' | 'actuary'
+export type RegionType   = 'all' | 'CN' | 'HK' | 'SG'
+export type RelationType = 'all' | 'colleague' | 'former' | 'alumni'
 
 export interface GraphFilters {
-  companyType: CompanyType
-  titleType:   TitleType
-  region:      RegionType
+  companyType:  CompanyType
+  titleType:    TitleType
+  region:       RegionType
+  relationType: RelationType
 }
 
 export async function getPreviewGraph(
   nodeLimit = 150,
-  filters: GraphFilters = { companyType: 'all', titleType: 'all', region: 'all' }
+  filters: GraphFilters = { companyType: 'all', titleType: 'all', region: 'all', relationType: 'all' }
 ): Promise<{ nodes: Executive[]; edges: Relationship[] }> {
   let q = supabase
     .from('executives')

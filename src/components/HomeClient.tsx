@@ -4,7 +4,7 @@ import { useRef, useState, useCallback } from 'react'
 import SearchBar from './SearchBar'
 import BackgroundGraph from './BackgroundGraph'
 import ProfilePanel from './ProfilePanel'
-import type { GraphFilters, CompanyType, TitleType, RegionType } from '@/lib/api'
+import type { GraphFilters, CompanyType, TitleType, RegionType, RelationType } from '@/lib/api'
 import type { Executive } from '@/types'
 
 const COMPANY_OPTS: { value: CompanyType; label: string }[] = [
@@ -23,6 +23,12 @@ const REGION_OPTS: { value: RegionType; label: string }[] = [
   { value: 'CN',  label: '中国大陆' },
   { value: 'HK',  label: '中国香港' },
   { value: 'SG',  label: '新加坡' },
+]
+const RELATION_OPTS: { value: RelationType; label: string }[] = [
+  { value: 'all',       label: '所有关系' },
+  { value: 'colleague', label: '同事' },
+  { value: 'former',    label: '前同事' },
+  { value: 'alumni',    label: '校友' },
 ]
 
 function Section<T extends string>({
@@ -62,9 +68,10 @@ function Section<T extends string>({
 export default function HomeClient() {
   const graphRef = useRef<HTMLDivElement>(null)
   const [filters, setFilters] = useState<GraphFilters>({
-    companyType: 'all',
-    titleType:   'all',
-    region:      'all',
+    companyType:  'all',
+    titleType:    'all',
+    region:       'all',
+    relationType: 'all',
   })
   const [selectedId, setSelectedId] = useState<number | null>(null)
 
@@ -90,9 +97,10 @@ export default function HomeClient() {
         />
 
         <div className="mt-5 flex flex-col gap-4">
-          <Section label="公司类型" opts={COMPANY_OPTS} value={filters.companyType} onChange={v => setFilters(f => ({ ...f, companyType: v }))} />
-          <Section label="职位"     opts={TITLE_OPTS}   value={filters.titleType}   onChange={v => setFilters(f => ({ ...f, titleType: v }))} />
-          <Section label="地区"     opts={REGION_OPTS}  value={filters.region}      onChange={v => setFilters(f => ({ ...f, region: v }))} />
+          <Section label="关系类型" opts={RELATION_OPTS} value={filters.relationType} onChange={v => setFilters(f => ({ ...f, relationType: v }))} />
+          <Section label="公司类型" opts={COMPANY_OPTS}  value={filters.companyType}  onChange={v => setFilters(f => ({ ...f, companyType: v }))} />
+          <Section label="职位"     opts={TITLE_OPTS}    value={filters.titleType}    onChange={v => setFilters(f => ({ ...f, titleType: v }))} />
+          <Section label="地区"     opts={REGION_OPTS}   value={filters.region}       onChange={v => setFilters(f => ({ ...f, region: v }))} />
         </div>
 
         <div className="mt-auto border-t border-zinc-800/50 pt-4 text-xs text-zinc-700">
