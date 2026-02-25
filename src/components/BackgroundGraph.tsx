@@ -17,16 +17,42 @@ const REGION_COLOR: Record<string, string> = {
   SG: '#10b981',
 }
 const EDGE_COLOR: Record<string, string> = {
-  colleague: 'rgba(99,102,241,0.25)',
-  alumni:    'rgba(245,158,11,0.2)',
-  former:    'rgba(139,92,246,0.2)',
+  colleague: 'rgba(99,102,241,0.22)',
+  alumni:    'rgba(245,158,11,0.18)',
+  former:    'rgba(139,92,246,0.18)',
+}
+
+// ── client-side highlight matching ──────────────────────────
+const LIFE_KW     = ['人寿', '健康', '养老', 'Life', 'life']
+const PROPERTY_KW = ['财产', '财险', '再保', '农业保险', 'Insurance', 'insurance']
+const BOARD_KW    = ['董事', '监事']
+const MGMT_KW     = ['总裁', '总经理', '副总', 'CEO', 'Chief', 'chief', 'President']
+const ACTUARY_KW  = ['精算', 'Actuary', 'actuary']
+
+function matchesFilters(exec: Executive, filters: GraphFilters): boolean {
+  const company = exec.company ?? ''
+  const title   = exec.title   ?? ''
+  const region  = exec.region  ?? ''
+
+  if (filters.companyType === 'life'     && !LIFE_KW.some(k => company.includes(k)))     return false
+  if (filters.companyType === 'property' && !PROPERTY_KW.some(k => company.includes(k))) return false
+  if (filters.titleType   === 'board'      && !BOARD_KW.some(k => title.includes(k)))    return false
+  if (filters.titleType   === 'management' && !MGMT_KW.some(k => title.includes(k)))     return false
+  if (filters.titleType   === 'actuary'    && !ACTUARY_KW.some(k => title.includes(k)))  return false
+  if (filters.region !== 'all' && region !== filters.region)                              return false
+  return true
+}
+
+function hasActiveFilter(f: GraphFilters) {
+  return f.companyType !== 'all' || f.titleType !== 'all' || f.region !== 'all'
 }
 
 interface Props {
   filters: GraphFilters
+  containerRef: React.RefObject<HTMLDivElement | null>
 }
 
-export default function BackgroundGraph({ filters }: Props) {
+export default function BackgroundGraph({ filters, containerRef }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animRef   = useRef<number>(0)
   const stateRef  = useRef<{
@@ -38,65 +64,68 @@ export default function BackgroundGraph({ filters }: Props) {
   }>({ simNodes: [], nodeById: new Map(), edges: [], hoverId: null, frame: 0 })
   const [loading, setLoading] = useState(true)
   const [hovered, setHovered] = useState<Executive | null>(null)
+  const filtersRef = useRef(filters)
   const router = useRouter()
 
-  // Re-initialise simulation whenever filters change
+  // keep filtersRef in sync so draw() always has the latest without re-running effect
+  useEffect(() => { filtersRef.current = filters }, [filters])
+
+  // Load data once
   useEffect(() => {
-    setLoading(true)
-    setHovered(null)
+    getPreviewGraph(200, { companyType: 'all', titleType: 'all', region: 'all' }).then(({ nodes, edges }) => {
+      const container = containerRef.current
+      const W = container?.clientWidth  ?? window.innerWidth
+      const H = container?.clientHeight ?? window.innerHeight
 
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')!
-
-    getPreviewGraph(150, filters).then(({ nodes, edges }) => {
-      const W = window.innerWidth
-      const H = window.innerHeight
-
-      const simNodes: SimNode[] = nodes.map(exec => ({
-        exec,
-        x: 80 + Math.random() * (W - 160),
-        y: 80 + Math.random() * (H - 160),
-        vx: (Math.random() - 0.5) * 2,
-        vy: (Math.random() - 0.5) * 2,
-      }))
       stateRef.current = {
-        simNodes,
-        nodeById: new Map(simNodes.map(n => [n.exec.id, n])),
+        simNodes: nodes.map(exec => ({
+          exec,
+          x: 60 + Math.random() * (W - 120),
+          y: 60 + Math.random() * (H - 120),
+          vx: (Math.random() - 0.5) * 2,
+          vy: (Math.random() - 0.5) * 2,
+        })),
+        nodeById: new Map(),
         edges,
         hoverId: null,
         frame: 0,
       }
+      stateRef.current.nodeById = new Map(stateRef.current.simNodes.map(n => [n.exec.id, n]))
       setLoading(false)
     })
-  }, [filters.region, filters.companyType, filters.titleType])
+  }, [])
 
-  // Canvas setup + animation loop (runs once)
+  // Canvas + animation loop (runs once)
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')!
 
     const resize = () => {
+      const container = containerRef.current
+      const W = container?.clientWidth  ?? window.innerWidth
+      const H = container?.clientHeight ?? window.innerHeight
       const dpr = window.devicePixelRatio || 1
-      canvas.width  = window.innerWidth  * dpr
-      canvas.height = window.innerHeight * dpr
-      canvas.style.width  = window.innerWidth  + 'px'
-      canvas.style.height = window.innerHeight + 'px'
+      canvas.width  = W * dpr
+      canvas.height = H * dpr
+      canvas.style.width  = W + 'px'
+      canvas.style.height = H + 'px'
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     }
     resize()
     window.addEventListener('resize', resize)
 
-    const REPULSION  = 1800
+    const REPULSION  = 2000
     const SPRING_K   = 0.006
-    const SPRING_LEN = 180
-    const GRAVITY    = 0.0006
+    const SPRING_LEN = 160
+    const GRAVITY    = 0.0005
     const DAMPING    = 0.88
 
     const tick = () => {
       const { simNodes, nodeById, edges } = stateRef.current
-      const W = window.innerWidth, H = window.innerHeight
+      const container = containerRef.current
+      const W = container?.clientWidth  ?? window.innerWidth
+      const H = container?.clientHeight ?? window.innerHeight
       const cx = W / 2, cy = H / 2
 
       for (let i = 0; i < simNodes.length; i++) {
@@ -104,7 +133,7 @@ export default function BackgroundGraph({ filters }: Props) {
           const a = simNodes[i], b = simNodes[j]
           const dx = b.x - a.x, dy = b.y - a.y
           const d2 = dx * dx + dy * dy
-          if (d2 > 90000) continue
+          if (d2 > 80000) continue
           const d = Math.sqrt(d2) || 0.01
           const f = REPULSION / (d * d)
           a.vx -= (dx / d) * f; a.vy -= (dy / d) * f
@@ -126,61 +155,75 @@ export default function BackgroundGraph({ filters }: Props) {
         n.vx *= DAMPING; n.vy *= DAMPING
         n.vx = Math.max(-8, Math.min(8, n.vx))
         n.vy = Math.max(-8, Math.min(8, n.vy))
-        n.x = Math.max(16, Math.min(W - 16, n.x + n.vx))
-        n.y = Math.max(16, Math.min(H - 16, n.y + n.vy))
+        const container = containerRef.current
+        const W2 = container?.clientWidth  ?? window.innerWidth
+        const H2 = container?.clientHeight ?? window.innerHeight
+        n.x = Math.max(16, Math.min(W2 - 16, n.x + n.vx))
+        n.y = Math.max(16, Math.min(H2 - 16, n.y + n.vy))
       }
     }
 
     const draw = () => {
       const { simNodes, nodeById, edges, hoverId } = stateRef.current
-      const W = window.innerWidth, H = window.innerHeight
+      const f = filtersRef.current
+      const active = hasActiveFilter(f)
+      const container = containerRef.current
+      const W = container?.clientWidth  ?? window.innerWidth
+      const H = container?.clientHeight ?? window.innerHeight
       ctx.clearRect(0, 0, W, H)
 
+      // edges
       for (const e of edges) {
         const a = nodeById.get(e.source_id), b = nodeById.get(e.target_id)
         if (!a || !b) continue
-        const isHl = hoverId === e.source_id || hoverId === e.target_id
-        ctx.beginPath()
-        ctx.moveTo(a.x, a.y)
-        ctx.lineTo(b.x, b.y)
-        if (isHl) {
-          ctx.strokeStyle = 'rgba(148,163,184,0.75)'
-          ctx.lineWidth   = 1.5
-          ctx.shadowColor = '#94a3b8'
-          ctx.shadowBlur  = 6
+        const aMatch = !active || matchesFilters(a.exec, f)
+        const bMatch = !active || matchesFilters(b.exec, f)
+        const edgeMatch = aMatch && bMatch
+        const isHov = hoverId === e.source_id || hoverId === e.target_id
+
+        if (isHov) {
+          ctx.strokeStyle = 'rgba(148,163,184,0.8)'; ctx.lineWidth = 1.5
+          ctx.shadowColor = '#94a3b8'; ctx.shadowBlur = 6
+        } else if (active && edgeMatch) {
+          ctx.strokeStyle = EDGE_COLOR[e.type] ?? 'rgba(99,102,241,0.4)'
+          ctx.lineWidth = 1.2; ctx.shadowBlur = 0
+        } else if (active) {
+          ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 0.5; ctx.shadowBlur = 0
         } else {
-          ctx.strokeStyle = EDGE_COLOR[e.type] ?? 'rgba(99,102,241,0.15)'
-          ctx.lineWidth   = 1
-          ctx.shadowBlur  = 0
+          ctx.strokeStyle = EDGE_COLOR[e.type] ?? 'rgba(99,102,241,0.2)'
+          ctx.lineWidth = 1; ctx.shadowBlur = 0
         }
-        ctx.stroke()
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke()
       }
       ctx.shadowBlur = 0
 
+      // nodes
       for (const sn of simNodes) {
-        const isHl = hoverId === sn.exec.id
-        const r    = isHl ? 10 : 6
-        const color = REGION_COLOR[sn.exec.region ?? 'CN'] ?? '#3b82f6'
+        const match   = !active || matchesFilters(sn.exec, f)
+        const isHov   = hoverId === sn.exec.id
+        const r       = isHov ? 11 : match ? 7 : 4
+        const color   = REGION_COLOR[sn.exec.region ?? 'CN'] ?? '#3b82f6'
 
-        if (isHl) { ctx.shadowColor = color; ctx.shadowBlur = 16 }
+        ctx.globalAlpha = isHov ? 1 : match ? (active ? 0.95 : 0.65) : 0.1
+
+        if (isHov || (active && match)) {
+          ctx.shadowColor = color; ctx.shadowBlur = isHov ? 16 : 10
+        } else {
+          ctx.shadowBlur = 0
+        }
 
         const grad = ctx.createRadialGradient(sn.x - 1, sn.y - 1, 0, sn.x, sn.y, r)
-        grad.addColorStop(0, 'rgba(255,255,255,0.55)')
+        grad.addColorStop(0, 'rgba(255,255,255,0.5)')
         grad.addColorStop(1, color)
-        ctx.globalAlpha = isHl ? 1 : 0.65
-        ctx.beginPath()
-        ctx.arc(sn.x, sn.y, r, 0, Math.PI * 2)
-        ctx.fillStyle = grad
-        ctx.fill()
+        ctx.beginPath(); ctx.arc(sn.x, sn.y, r, 0, Math.PI * 2)
+        ctx.fillStyle = grad; ctx.fill()
         ctx.shadowBlur = 0; ctx.globalAlpha = 1
 
-        if (isHl) {
-          ctx.font = 'bold 11px sans-serif'
+        if (isHov || (active && match && sn.exec.name)) {
+          ctx.font = isHov ? 'bold 11px sans-serif' : '9px sans-serif'
           ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'
-          ctx.fillStyle = 'rgba(0,0,0,0.7)'
-          ctx.fillText(sn.exec.name, sn.x + 1, sn.y - r)
-          ctx.fillStyle = '#f1f5f9'
-          ctx.fillText(sn.exec.name, sn.x, sn.y - r - 1)
+          ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillText(sn.exec.name, sn.x + 1, sn.y - r)
+          ctx.fillStyle = isHov ? '#f8fafc' : '#cbd5e1'; ctx.fillText(sn.exec.name, sn.x, sn.y - r - 1)
         }
       }
       ctx.globalAlpha = 1
@@ -194,30 +237,31 @@ export default function BackgroundGraph({ filters }: Props) {
     }
     animRef.current = requestAnimationFrame(loop)
 
-    /* interactions */
     const hit = (mx: number, my: number) => {
       const { simNodes } = stateRef.current
-      let best: SimNode | null = null, bestD = 14
+      let best: SimNode | null = null, bestD = 16
       for (const n of simNodes) {
         const d = Math.hypot(mx - n.x, my - n.y)
         if (d < bestD) { best = n; bestD = d }
       }
       return best
     }
+
     const onMove = (e: MouseEvent) => {
-      const n = hit(e.clientX, e.clientY)
+      const rect = canvas.getBoundingClientRect()
+      const n = hit(e.clientX - rect.left, e.clientY - rect.top)
       stateRef.current.hoverId = n ? n.exec.id : null
       canvas.style.cursor = n ? 'pointer' : 'default'
       setHovered(n ? n.exec : null)
     }
     const onClick = (e: MouseEvent) => {
-      const n = hit(e.clientX, e.clientY)
+      const rect = canvas.getBoundingClientRect()
+      const n = hit(e.clientX - rect.left, e.clientY - rect.top)
       if (n) router.push(`/exec/${n.exec.id}`)
     }
 
     canvas.addEventListener('mousemove', onMove)
     canvas.addEventListener('click', onClick)
-
     return () => {
       cancelAnimationFrame(animRef.current)
       canvas.removeEventListener('mousemove', onMove)
@@ -238,10 +282,11 @@ export default function BackgroundGraph({ filters }: Props) {
         </div>
       )}
       {hovered && (
-        <div className="pointer-events-none absolute bottom-5 left-5 z-20 rounded-lg border border-zinc-700 bg-zinc-900/90 px-3 py-2 text-xs shadow-xl backdrop-blur">
+        <div className="pointer-events-none absolute bottom-4 right-4 z-20 rounded-lg border border-zinc-700 bg-zinc-900/90 px-3 py-2 text-xs shadow-xl backdrop-blur">
           <div className="font-semibold text-white">{hovered.name}</div>
           <div className="mt-0.5 text-zinc-400">{hovered.title}</div>
           <div className="mt-0.5 text-zinc-500">{hovered.company}</div>
+          <div className="mt-1.5 text-zinc-600">点击查看详情 →</div>
         </div>
       )}
     </>
