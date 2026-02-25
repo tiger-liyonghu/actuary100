@@ -1,13 +1,63 @@
 import { supabase } from './supabase'
 import type { Executive, Relationship } from '@/types'
 
+export interface SearchResult {
+  id: number
+  name: string
+  title: string | null
+  company: string | null
+  region: string | null
+  matchType: 'name' | 'company' | 'school'
+  matchValue: string
+}
+
+export async function smartSearch(query: string): Promise<SearchResult[]> {
+  const q = query.trim()
+  if (!q) return []
+
+  const select = 'id, name, title, company, region, extracted'
+
+  // Run 3 queries in parallel
+  const [nameRes, companyRes, schoolRes] = await Promise.all([
+    supabase.from('executives').select(select).ilike('name', `%${q}%`).limit(6),
+    supabase.from('executives').select(select).ilike('company', `%${q}%`).limit(6),
+    supabase.from('executives').select(select).filter('extracted::text', 'ilike', `%${q}%`).limit(6),
+  ])
+
+  const results: SearchResult[] = []
+  const seen = new Set<number>()
+
+  const add = (rows: any[], matchType: SearchResult['matchType'], getValue: (r: any) => string) => {
+    for (const r of rows ?? []) {
+      if (seen.has(r.id)) continue
+      seen.add(r.id)
+      results.push({ id: r.id, name: r.name, title: r.title, company: r.company, region: r.region, matchType, matchValue: getValue(r) })
+    }
+  }
+
+  add(nameRes.data ?? [],    'name',    r => r.name)
+  add(companyRes.data ?? [], 'company', r => r.company ?? '')
+  // For school results: only add if schools array actually matches
+  for (const r of schoolRes.data ?? []) {
+    if (seen.has(r.id)) continue
+    const schools: string[] = r.extracted?.schools ?? []
+    const matched = schools.find((s: string) => s.toLowerCase().includes(q.toLowerCase()))
+    if (matched) {
+      seen.add(r.id)
+      results.push({ id: r.id, name: r.name, title: r.title, company: r.company, region: r.region, matchType: 'school', matchValue: matched })
+    }
+  }
+
+  return results
+}
+
+// Keep for backward compat
 export async function searchExecutives(query: string, limit = 20): Promise<Executive[]> {
   if (!query.trim()) return []
-  // Search by name OR company (supports both Chinese and English)
   const { data, error } = await supabase
     .from('executives')
     .select('id, name, title, company, region')
-    .or(`name.ilike.%${query}%,company.ilike.%${query}%,title.ilike.%${query}%`)
+    .or(`name.ilike.%${query}%,company.ilike.%${query}%`)
     .limit(limit)
   if (error) throw error
   return (data as Executive[]) ?? []
