@@ -93,6 +93,30 @@ export async function getCompanyInternalEdges(executiveIds: number[]): Promise<R
   return (data as Relationship[]) ?? []
 }
 
+export async function getPreviewGraph(nodeLimit = 120): Promise<{ nodes: Executive[]; edges: Relationship[] }> {
+  // Fetch a sample of executives for the homepage background graph
+  const { data: nodes, error: e1 } = await supabase
+    .from('executives')
+    .select('id, name, title, company, region')
+    .not('company', 'is', null)
+    .limit(nodeLimit)
+
+  if (e1) throw e1
+  const execs = (nodes as Executive[]) ?? []
+  const ids = execs.map(n => n.id)
+
+  // Fetch relationships only among these nodes
+  const { data: edges, error: e2 } = await supabase
+    .from('relationships')
+    .select('*')
+    .in('source_id', ids)
+    .in('target_id', ids)
+    .limit(1000)
+
+  if (e2) throw e2
+  return { nodes: execs, edges: (edges as Relationship[]) ?? [] }
+}
+
 export async function getTopCompanies(limit = 30): Promise<{ company: string; count: number }[]> {
   const { data, error } = await supabase
     .from('executives')
