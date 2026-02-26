@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { getExecutive, getCompanyExecutives } from '@/lib/api'
+import { submitKnown, submitReport } from '@/lib/feedback'
+import FeedbackModal from './FeedbackModal'
 import type { Executive } from '@/types'
 
 const REGION_LABEL: Record<string, string> = {
@@ -18,6 +20,7 @@ interface Props {
 }
 
 type View = { type: 'exec' } | { type: 'company'; name: string }
+type Modal = 'error' | 'outdated' | null
 
 export default function ProfilePanel({ execId, onClose, onSelectExec }: Props) {
   const [exec, setExec]               = useState<Executive | null>(null)
@@ -25,17 +28,27 @@ export default function ProfilePanel({ execId, onClose, onSelectExec }: Props) {
   const [view, setView]               = useState<View>({ type: 'exec' })
   const [companyExecs, setCompanyExecs]       = useState<Executive[]>([])
   const [companyLoading, setCompanyLoading]   = useState(false)
+  const [knownState, setKnownState]   = useState<'idle' | 'done'>('idle')
+  const [modal, setModal]             = useState<Modal>(null)
 
   // Fetch exec data whenever execId changes; also reset to exec view
   useEffect(() => {
     setView({ type: 'exec' })
     setExecLoading(true)
     setExec(null)
+    setKnownState('idle')
+    setModal(null)
     getExecutive(execId).then(data => {
       setExec(data)
       setExecLoading(false)
     })
   }, [execId])
+
+  const handleKnown = async () => {
+    if (knownState === 'done') return
+    await submitKnown(execId)
+    setKnownState('done')
+  }
 
   // Fetch company executives when switching to company view
   useEffect(() => {
@@ -246,6 +259,52 @@ export default function ProfilePanel({ execId, onClose, onSelectExec }: Props) {
           </>
         )}
       </div>
+
+      {/* ── 底部操作按钮 ── */}
+      {exec && (
+        <div className="flex-shrink-0 border-t border-zinc-800/60 px-4 py-3 flex gap-2">
+          <button
+            onClick={handleKnown}
+            className={`flex-1 rounded-lg py-1.5 text-xs font-medium transition ${
+              knownState === 'done'
+                ? 'bg-emerald-900/40 text-emerald-400 cursor-default'
+                : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+            }`}
+          >
+            {knownState === 'done' ? '✓ 已认识' : '我认识'}
+          </button>
+          <button
+            onClick={() => setModal('error')}
+            className="flex-1 rounded-lg bg-zinc-800 py-1.5 text-xs font-medium text-zinc-300 transition hover:bg-zinc-700"
+          >
+            报错
+          </button>
+          <button
+            onClick={() => setModal('outdated')}
+            className="flex-1 rounded-lg bg-zinc-800 py-1.5 text-xs font-medium text-zinc-300 transition hover:bg-zinc-700"
+          >
+            信息过时
+          </button>
+        </div>
+      )}
+
+      {modal === 'error' && (
+        <FeedbackModal
+          title={`报错：${exec?.name ?? ''}`}
+          placeholder="请描述错误信息，例如姓名有误、职位不符…"
+          requireText
+          onSubmit={async (note) => { await submitReport(execId, 'error', note) }}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal === 'outdated' && (
+        <FeedbackModal
+          title={`信息过时：${exec?.name ?? ''}`}
+          placeholder="请说明哪些信息已过时（可选）"
+          onSubmit={async (note) => { await submitReport(execId, 'outdated', note || undefined) }}
+          onClose={() => setModal(null)}
+        />
+      )}
     </div>
   )
 }

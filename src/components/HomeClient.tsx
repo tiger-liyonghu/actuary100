@@ -4,6 +4,8 @@ import { useRef, useState, useCallback } from 'react'
 import SearchBar from './SearchBar'
 import BackgroundGraph from './BackgroundGraph'
 import ProfilePanel from './ProfilePanel'
+import FeedbackModal from './FeedbackModal'
+import { submitFeedback } from '@/lib/feedback'
 import type { GraphFilters, CompanyType, TitleType, RegionType, RelationType } from '@/lib/api'
 import type { Executive } from '@/types'
 
@@ -83,6 +85,7 @@ function Section<T extends string>({
 export default function HomeClient() {
   const graphRef = useRef<HTMLDivElement>(null)
   const [lang, setLang] = useState<Lang>('zh')
+  const [showFeedback, setShowFeedback] = useState(false)
   const [filters, setFilters] = useState<GraphFilters>({
     companyType:  'all',
     titleType:    'all',
@@ -167,8 +170,24 @@ export default function HomeClient() {
           <div>1,494+ {t('execs')}</div>
           <div className="mt-0.5">15,204+ {t('relations')}</div>
           <div className="mt-0.5">191 {t('companies')}</div>
+          <button
+            onClick={() => setShowFeedback(true)}
+            className="mt-3 w-full rounded-lg border border-zinc-800 py-1.5 text-xs text-zinc-600 transition hover:border-zinc-700 hover:text-zinc-400"
+          >
+            提意见
+          </button>
         </div>
       </aside>
+
+      {showFeedback && (
+        <FeedbackModal
+          title="提意见"
+          placeholder="请输入你的建议或反馈…"
+          requireText
+          onSubmit={submitFeedback}
+          onClose={() => setShowFeedback(false)}
+        />
+      )}
 
       {/* ── Center: graph ── */}
       <div ref={graphRef} className="relative flex-1 overflow-hidden">
