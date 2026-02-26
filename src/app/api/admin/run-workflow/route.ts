@@ -10,11 +10,12 @@ const sb = createClient(
 
 const SCRIPTS_DIR = path.resolve(process.cwd(), '../scripts')
 
+const ext = 'mjs'
 const WORKFLOWS: Record<string, { name: string; file: string; envAllowed: string[] }> = {
-  '05_insurers': { name: '持牌险企名单采集', file: '05_scrape_licensed_insurers.mjs', envAllowed: ['MARKET', 'DRY_RUN'] },
-  '02_scrape':   { name: '公司简介采集',     file: '02_scrape_company_profiles.mjs',  envAllowed: ['LIMIT', 'MARKET'] },
-  '03_former':   { name: '前同事关系挖掘',   file: '03_mine_former_colleagues.mjs',   envAllowed: ['DRY_RUN', 'MIN_YEAR'] },
-  '04_alumni':   { name: '校友关系挖掘',     file: '04_mine_alumni.mjs',              envAllowed: ['DRY_RUN', 'MIN_COUNT'] },
+  '05_insurers': { name: '持牌险企名单采集', file: `05_scrape_licensed_insurers.${ext}`, envAllowed: ['MARKET', 'DRY_RUN'] },
+  '02_scrape':   { name: '公司简介采集',     file: `02_scrape_company_profiles.${ext}`,  envAllowed: ['LIMIT', 'MARKET'] },
+  '03_former':   { name: '前同事关系挖掘',   file: `03_mine_former_colleagues.${ext}`,   envAllowed: ['DRY_RUN', 'MIN_YEAR'] },
+  '04_alumni':   { name: '校友关系挖掘',     file: `04_mine_alumni.${ext}`,              envAllowed: ['DRY_RUN', 'MIN_COUNT'] },
 }
 
 export async function POST(request: Request) {
