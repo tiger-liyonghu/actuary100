@@ -111,12 +111,7 @@ export default function HomeClient() {
       {/* ── Left sidebar ── */}
       <aside className="flex w-48 flex-shrink-0 flex-col border-r border-zinc-800/50 bg-zinc-950 px-4 py-5">
         <div className="mb-4 flex items-start justify-between">
-          <div>
-            <h1 className="text-lg font-bold text-white">
-              Actuary<span className="text-blue-400">100</span>
-            </h1>
-            <p className="mt-1 text-xs text-zinc-400">{t('subtitle')}</p>
-          </div>
+          <p className="text-xs text-zinc-400">{t('subtitle')}</p>
           {/* Language toggle */}
           <button
             onClick={() => setLang(l => l === 'zh' ? 'en' : 'zh')}

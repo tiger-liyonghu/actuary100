@@ -28,8 +28,9 @@ export default function ProfilePanel({ execId, onClose, onSelectExec }: Props) {
   const [view, setView]               = useState<View>({ type: 'exec' })
   const [companyExecs, setCompanyExecs]       = useState<Executive[]>([])
   const [companyLoading, setCompanyLoading]   = useState(false)
-  const [knownState, setKnownState]   = useState<'idle' | 'done'>('idle')
-  const [modal, setModal]             = useState<Modal>(null)
+  const [knownState, setKnownState]     = useState<'idle' | 'done'>('idle')
+  const [outdatedState, setOutdatedState] = useState<'idle' | 'done'>('idle')
+  const [modal, setModal]               = useState<Modal>(null)
 
   // Fetch exec data whenever execId changes; also reset to exec view
   useEffect(() => {
@@ -37,6 +38,7 @@ export default function ProfilePanel({ execId, onClose, onSelectExec }: Props) {
     setExecLoading(true)
     setExec(null)
     setKnownState('idle')
+    setOutdatedState('idle')
     setModal(null)
     getExecutive(execId).then(data => {
       setExec(data)
@@ -48,6 +50,12 @@ export default function ProfilePanel({ execId, onClose, onSelectExec }: Props) {
     if (knownState === 'done') return
     await submitKnown(execId)
     setKnownState('done')
+  }
+
+  const handleOutdated = async () => {
+    if (outdatedState === 'done') return
+    await submitReport(execId, 'outdated')
+    setOutdatedState('done')
   }
 
   // Fetch company executives when switching to company view
@@ -162,7 +170,10 @@ export default function ProfilePanel({ execId, onClose, onSelectExec }: Props) {
                   {exec.name[0]}
                 </div>
                 <div className="min-w-0">
-                  <h2 className="text-base font-bold text-white">{exec.name}</h2>
+                  <div className="flex items-center gap-1.5">
+                    <h2 className="text-base font-bold text-white">{exec.name}</h2>
+                    <span className={`text-base transition-colors duration-300 ${knownState === 'done' ? 'text-yellow-400' : 'text-zinc-700'}`}>★</span>
+                  </div>
                   <p className="mt-0.5 text-xs leading-snug text-zinc-400">{exec.title}</p>
                 </div>
               </div>
@@ -280,10 +291,14 @@ export default function ProfilePanel({ execId, onClose, onSelectExec }: Props) {
             报错
           </button>
           <button
-            onClick={() => setModal('outdated')}
-            className="flex-1 rounded-lg bg-zinc-800 py-1.5 text-xs font-medium text-zinc-300 transition hover:bg-zinc-700"
+            onClick={handleOutdated}
+            className={`flex-1 rounded-lg py-1.5 text-xs font-medium transition ${
+              outdatedState === 'done'
+                ? 'bg-red-900/40 text-red-400 cursor-default'
+                : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+            }`}
           >
-            信息过时
+            {outdatedState === 'done' ? '❗ 已标记' : '信息过时'}
           </button>
         </div>
       )}
