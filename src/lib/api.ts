@@ -123,25 +123,16 @@ export async function getEgoGraph(
   return { nodes: (nodes as Executive[]) ?? [], edges }
 }
 
+
 export async function getCompanyExecutives(companyName: string): Promise<Executive[]> {
   const { data, error } = await supabase
     .from('executives')
     .select('id, name, title, company, region')
     .ilike('company', `%${companyName}%`)
-    .limit(100)
+    .order('name')
+    .limit(200)
   if (error) throw error
   return (data as Executive[]) ?? []
-}
-
-export async function getCompanyInternalEdges(executiveIds: number[]): Promise<Relationship[]> {
-  if (executiveIds.length < 2) return []
-  const { data, error } = await supabase
-    .from('relationships')
-    .select('*')
-    .in('source_id', executiveIds)
-    .in('target_id', executiveIds)
-  if (error) throw error
-  return (data as Relationship[]) ?? []
 }
 
 export type CompanyType  = 'all' | 'life' | 'property'
@@ -190,12 +181,17 @@ export async function getPreviewGraph(
   const ids = execs.map(n => n.id)
   if (ids.length === 0) return { nodes: [], edges: [] }
 
-  const { data: edges, error: e2 } = await supabase
+  let edgeQuery = supabase
     .from('relationships')
     .select('*')
     .in('source_id', ids)
     .in('target_id', ids)
-    .limit(1200)
+
+  if (filters.relationType !== 'all') {
+    edgeQuery = edgeQuery.eq('type', filters.relationType)
+  }
+
+  const { data: edges, error: e2 } = await edgeQuery.limit(4000)
 
   if (e2) throw e2
   return { nodes: execs, edges: (edges as Relationship[]) ?? [] }

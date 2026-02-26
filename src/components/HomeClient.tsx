@@ -7,29 +7,44 @@ import ProfilePanel from './ProfilePanel'
 import type { GraphFilters, CompanyType, TitleType, RegionType, RelationType } from '@/lib/api'
 import type { Executive } from '@/types'
 
-const COMPANY_OPTS: { value: CompanyType; label: string }[] = [
-  { value: 'all',      label: '所有公司' },
-  { value: 'life',     label: '寿险健康险' },
-  { value: 'property', label: '财险' },
+type Lang = 'zh' | 'en'
+
+const COMPANY_OPTS: { value: CompanyType; zh: string; en: string }[] = [
+  { value: 'all',      zh: '所有公司', en: 'All Companies' },
+  { value: 'life',     zh: '寿险',     en: 'Life Insurance' },
+  { value: 'property', zh: '财险',     en: 'P&C Insurance' },
 ]
-const TITLE_OPTS: { value: TitleType; label: string }[] = [
-  { value: 'all',        label: '所有职位' },
-  { value: 'board',      label: '董事会' },
-  { value: 'management', label: '管理层' },
-  { value: 'actuary',    label: '精算师' },
+const TITLE_OPTS: { value: TitleType; zh: string; en: string }[] = [
+  { value: 'all',        zh: '所有职位', en: 'All Titles' },
+  { value: 'board',      zh: '董事会',   en: 'Board' },
+  { value: 'management', zh: '管理层',   en: 'Management' },
+  { value: 'actuary',    zh: '精算师',   en: 'Actuary' },
 ]
-const REGION_OPTS: { value: RegionType; label: string }[] = [
-  { value: 'all', label: '所有地区' },
-  { value: 'CN',  label: '中国大陆' },
-  { value: 'HK',  label: '中国香港' },
-  { value: 'SG',  label: '新加坡' },
+const REGION_OPTS: { value: RegionType; zh: string; en: string }[] = [
+  { value: 'all', zh: '所有地区', en: 'All Regions' },
+  { value: 'CN',  zh: '中国大陆', en: 'Mainland CN' },
+  { value: 'HK',  zh: '中国香港', en: 'Hong Kong' },
+  { value: 'SG',  zh: '新加坡',   en: 'Singapore' },
 ]
-const RELATION_OPTS: { value: RelationType; label: string }[] = [
-  { value: 'all',       label: '所有关系' },
-  { value: 'colleague', label: '同事' },
-  { value: 'former',    label: '前同事' },
-  { value: 'alumni',    label: '校友' },
+const RELATION_OPTS: { value: RelationType; zh: string; en: string }[] = [
+  { value: 'all',       zh: '所有关系', en: 'All Relations' },
+  { value: 'colleague', zh: '同事',     en: 'Colleague' },
+  { value: 'former',    zh: '前同事',   en: 'Former' },
+  { value: 'alumni',    zh: '校友',     en: 'Alumni' },
 ]
+
+const SECTION_LABELS = {
+  relation: { zh: '关系', en: 'Relation' },
+  company:  { zh: '公司', en: 'Company' },
+  title:    { zh: '职位', en: 'Title' },
+  region:   { zh: '地区', en: 'Region' },
+  reset:    { zh: '✕ 重置筛选', en: '✕ Reset Filters' },
+  subtitle: { zh: '保险行业高管关系图谱', en: 'Insurance Executive Network' },
+  search:   { zh: '姓名 / 公司 / 学校…', en: 'Name / Company / School…' },
+  execs:    { zh: '高管', en: 'Executives' },
+  relations:{ zh: '关系', en: 'Relations' },
+  companies:{ zh: '家公司', en: 'Companies' },
+}
 
 function Section<T extends string>({
   label, opts, value, onChange,
@@ -67,6 +82,7 @@ function Section<T extends string>({
 
 export default function HomeClient() {
   const graphRef = useRef<HTMLDivElement>(null)
+  const [lang, setLang] = useState<Lang>('zh')
   const [filters, setFilters] = useState<GraphFilters>({
     companyType:  'all',
     titleType:    'all',
@@ -79,34 +95,78 @@ export default function HomeClient() {
     setSelectedId(exec.id)
   }, [])
 
+  const hasAnyFilter = filters.companyType !== 'all' || filters.titleType !== 'all' ||
+                       filters.region !== 'all' || filters.relationType !== 'all'
+  const resetFilters = () => setFilters({ companyType: 'all', titleType: 'all', region: 'all', relationType: 'all' })
+
+  const t = (key: keyof typeof SECTION_LABELS) => SECTION_LABELS[key][lang]
+  const label = (o: { zh: string; en: string }) => lang === 'zh' ? o.zh : o.en
+
   return (
     <div className="flex h-screen overflow-hidden bg-zinc-950">
 
-      {/* ── Left sidebar: filters ── */}
+      {/* ── Left sidebar ── */}
       <aside className="flex w-48 flex-shrink-0 flex-col border-r border-zinc-800/50 bg-zinc-950 px-4 py-5">
-        <div className="mb-5">
-          <h1 className="text-lg font-bold text-white">
-            Actuary<span className="text-blue-400">100</span>
-          </h1>
-          <p className="mt-0.5 text-[10px] text-zinc-600">保险行业高管关系图谱</p>
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <h1 className="text-lg font-bold text-white">
+              Actuary<span className="text-blue-400">100</span>
+            </h1>
+            <p className="mt-0.5 text-[10px] text-zinc-600">{t('subtitle')}</p>
+          </div>
+          {/* Language toggle */}
+          <button
+            onClick={() => setLang(l => l === 'zh' ? 'en' : 'zh')}
+            className="flex-shrink-0 rounded border border-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-500 transition hover:border-zinc-600 hover:text-zinc-300"
+          >
+            {lang === 'zh' ? 'EN' : '中'}
+          </button>
         </div>
 
         <SearchBar
-          placeholder="姓名 / 公司 / 学校…"
+          placeholder={t('search')}
           onSelect={setSelectedId}
         />
 
         <div className="mt-5 flex flex-col gap-4">
-          <Section label="关系类型" opts={RELATION_OPTS} value={filters.relationType} onChange={v => setFilters(f => ({ ...f, relationType: v }))} />
-          <Section label="公司类型" opts={COMPANY_OPTS}  value={filters.companyType}  onChange={v => setFilters(f => ({ ...f, companyType: v }))} />
-          <Section label="职位"     opts={TITLE_OPTS}    value={filters.titleType}    onChange={v => setFilters(f => ({ ...f, titleType: v }))} />
-          <Section label="地区"     opts={REGION_OPTS}   value={filters.region}       onChange={v => setFilters(f => ({ ...f, region: v }))} />
+          <Section
+            label={t('relation')}
+            opts={RELATION_OPTS.map(o => ({ value: o.value, label: label(o) }))}
+            value={filters.relationType}
+            onChange={v => setFilters(f => ({ ...f, relationType: v }))}
+          />
+          <Section
+            label={t('company')}
+            opts={COMPANY_OPTS.map(o => ({ value: o.value, label: label(o) }))}
+            value={filters.companyType}
+            onChange={v => setFilters(f => ({ ...f, companyType: v }))}
+          />
+          <Section
+            label={t('title')}
+            opts={TITLE_OPTS.map(o => ({ value: o.value, label: label(o) }))}
+            value={filters.titleType}
+            onChange={v => setFilters(f => ({ ...f, titleType: v }))}
+          />
+          <Section
+            label={t('region')}
+            opts={REGION_OPTS.map(o => ({ value: o.value, label: label(o) }))}
+            value={filters.region}
+            onChange={v => setFilters(f => ({ ...f, region: v }))}
+          />
+          {hasAnyFilter && (
+            <button
+              onClick={resetFilters}
+              className="mt-1 w-full rounded-lg border border-zinc-800 px-3 py-1.5 text-left text-xs text-zinc-600 transition hover:border-zinc-700 hover:bg-zinc-900 hover:text-zinc-400"
+            >
+              {t('reset')}
+            </button>
+          )}
         </div>
 
         <div className="mt-auto border-t border-zinc-800/50 pt-4 text-xs text-zinc-700">
-          <div>1,494+ 高管</div>
-          <div className="mt-0.5">15,204+ 关系</div>
-          <div className="mt-0.5">191 家公司</div>
+          <div>1,494+ {t('execs')}</div>
+          <div className="mt-0.5">15,204+ {t('relations')}</div>
+          <div className="mt-0.5">191 {t('companies')}</div>
         </div>
       </aside>
 
@@ -115,15 +175,20 @@ export default function HomeClient() {
         <BackgroundGraph
           filters={filters}
           containerRef={graphRef}
+          selectedId={selectedId}
           onNodeClick={handleNodeClick}
+          onDeselect={() => setSelectedId(null)}
         />
       </div>
 
-      {/* ── Right: profile panel (always visible) ── */}
-      <ProfilePanel
-        execId={selectedId}
-        onClose={() => setSelectedId(null)}
-      />
+      {/* ── Right: profile panel ── */}
+      {selectedId !== null && (
+        <ProfilePanel
+          execId={selectedId}
+          onClose={() => setSelectedId(null)}
+          onSelectExec={setSelectedId}
+        />
+      )}
 
     </div>
   )
