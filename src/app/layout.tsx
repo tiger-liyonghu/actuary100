@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Actuary100 — 保险高管关系图谱',
+  title: '保险行业高管关系图谱',
   description: '中国及亚太保险行业高管关系网络',
 }
 
