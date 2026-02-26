@@ -7,6 +7,7 @@ const NAV = [
   { href: '/admin',            label: '数据总览',  icon: '▦', exact: true },
   { href: '/admin/workflows',  label: '工作流',    icon: '⚙' },
   { href: '/admin/markets',    label: '市场清单',  icon: '◈' },
+  { href: '/admin/companies',  label: '公司清单',  icon: '◈' },
   { href: '/admin/executives', label: '高管数据',  icon: '◉' },
   { href: '/admin/profiles',   label: '公司简介',  icon: '◻' },
 ]
