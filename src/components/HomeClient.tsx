@@ -112,7 +112,7 @@ export default function HomeClient() {
             <h1 className="text-lg font-bold text-white">
               Actuary<span className="text-blue-400">100</span>
             </h1>
-            <p className="mt-0.5 text-[10px] text-zinc-600">{t('subtitle')}</p>
+            <p className="mt-1 text-xs text-zinc-400">{t('subtitle')}</p>
           </div>
           {/* Language toggle */}
           <button
