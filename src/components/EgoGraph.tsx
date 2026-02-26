@@ -157,6 +157,40 @@ export default function EgoGraph({ center, nodes, edges }: Props) {
           ctx.shadowBlur  = 0
         }
         ctx.stroke()
+
+        /* 高亮时在连线中点画关系标签 */
+        if (isHl) {
+          const LABEL: Record<string, string> = { colleague: '同事', alumni: '校友', former: '前同事' }
+          const label = LABEL[e.type]
+          if (label) {
+            const mx = (a.x + b.x) / 2
+            const my = (a.y + b.y) / 2
+            ctx.shadowBlur  = 0
+            ctx.globalAlpha = 0.9
+            ctx.font        = '10px sans-serif'
+            ctx.textAlign   = 'center'
+            ctx.textBaseline = 'middle'
+            /* 背景小胶囊 */
+            const tw = ctx.measureText(label).width + 8
+            const bx = mx - tw / 2, by = my - 8, bw = tw, bh = 16, br = 4
+            ctx.fillStyle = 'rgba(9,9,11,0.75)'
+            ctx.beginPath()
+            ctx.moveTo(bx + br, by)
+            ctx.lineTo(bx + bw - br, by)
+            ctx.arcTo(bx + bw, by, bx + bw, by + br, br)
+            ctx.lineTo(bx + bw, by + bh - br)
+            ctx.arcTo(bx + bw, by + bh, bx + bw - br, by + bh, br)
+            ctx.lineTo(bx + br, by + bh)
+            ctx.arcTo(bx, by + bh, bx, by + bh - br, br)
+            ctx.lineTo(bx, by + br)
+            ctx.arcTo(bx, by, bx + br, by, br)
+            ctx.closePath()
+            ctx.fill()
+            /* 文字 */
+            ctx.fillStyle = EDGE_GLOW[e.type] ?? '#94a3b8'
+            ctx.fillText(label, mx, my)
+          }
+        }
       }
       ctx.shadowBlur = 0; ctx.globalAlpha = 1
 
@@ -269,6 +303,17 @@ export default function EgoGraph({ center, nodes, edges }: Props) {
   const counts = { colleague: 0, alumni: 0, former: 0 }
   for (const e of edges) if (e.type in counts) counts[e.type as keyof typeof counts]++
 
+  /* ── selected 与 center 之间的关系 ── */
+  const selectedRelType = selected
+    ? edges.find(e =>
+        (e.source_id === selected.id && e.target_id === center.id) ||
+        (e.target_id === selected.id && e.source_id === center.id)
+      )?.type ?? null
+    : null
+
+  const REL_LABEL: Record<string, string> = { colleague: '同事', alumni: '校友', former: '前同事' }
+  const REL_COLOR: Record<string, string> = { colleague: '#94a3b8', alumni: '#fbbf24', former: '#8b5cf6' }
+
   return (
     <div className="relative h-full w-full bg-zinc-950">
       <div ref={containerRef} className="absolute inset-0" />
@@ -308,7 +353,17 @@ export default function EgoGraph({ center, nodes, edges }: Props) {
                 {selected.name[0]}
               </div>
               <div>
-                <div className="font-semibold text-white">{selected.name}</div>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-white">{selected.name}</span>
+                  {selectedRelType && (
+                    <span
+                      className="rounded px-1.5 py-0.5 text-[10px] font-medium"
+                      style={{ color: REL_COLOR[selectedRelType], backgroundColor: `${REL_COLOR[selectedRelType]}22`, border: `1px solid ${REL_COLOR[selectedRelType]}55` }}
+                    >
+                      {REL_LABEL[selectedRelType]}
+                    </span>
+                  )}
+                </div>
                 <div className="mt-0.5 text-xs text-zinc-400 line-clamp-2">{selected.title}</div>
               </div>
             </div>

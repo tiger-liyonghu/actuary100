@@ -20,7 +20,7 @@ interface Props {
 }
 
 type View = { type: 'exec' } | { type: 'company'; name: string }
-type Modal = 'error' | 'outdated' | null
+type Modal = 'error' | null
 
 export default function ProfilePanel({ execId, onClose, onSelectExec }: Props) {
   const [exec, setExec]               = useState<Executive | null>(null)
@@ -29,7 +29,7 @@ export default function ProfilePanel({ execId, onClose, onSelectExec }: Props) {
   const [companyExecs, setCompanyExecs]       = useState<Executive[]>([])
   const [companyLoading, setCompanyLoading]   = useState(false)
   const [knownState, setKnownState]     = useState<'idle' | 'done'>('idle')
-  const [outdatedState, setOutdatedState] = useState<'idle' | 'done'>('idle')
+  const [errorState, setErrorState]     = useState<'idle' | 'done'>('idle')
   const [modal, setModal]               = useState<Modal>(null)
 
   // Fetch exec data whenever execId changes; also reset to exec view
@@ -38,7 +38,7 @@ export default function ProfilePanel({ execId, onClose, onSelectExec }: Props) {
     setExecLoading(true)
     setExec(null)
     setKnownState('idle')
-    setOutdatedState('idle')
+    setErrorState('idle')
     setModal(null)
     getExecutive(execId).then(data => {
       setExec(data)
@@ -52,11 +52,6 @@ export default function ProfilePanel({ execId, onClose, onSelectExec }: Props) {
     setKnownState('done')
   }
 
-  const handleOutdated = async () => {
-    if (outdatedState === 'done') return
-    await submitReport(execId, 'outdated')
-    setOutdatedState('done')
-  }
 
   // Fetch company executives when switching to company view
   useEffect(() => {
@@ -72,7 +67,7 @@ export default function ProfilePanel({ execId, onClose, onSelectExec }: Props) {
   // ── Company view ──────────────────────────────────────────────────────────
   if (view.type === 'company') {
     return (
-      <div className="flex h-full w-72 flex-shrink-0 flex-col border-l border-zinc-800/60 bg-zinc-950">
+      <div className="flex h-full w-96 flex-shrink-0 flex-col border-l border-zinc-800/60 bg-zinc-950">
         <div className="flex items-center gap-2 border-b border-zinc-800 px-4 py-3">
           <button
             onClick={() => setView({ type: 'exec' })}
@@ -136,7 +131,7 @@ export default function ProfilePanel({ execId, onClose, onSelectExec }: Props) {
 
   // ── Exec view ─────────────────────────────────────────────────────────────
   return (
-    <div className="flex h-full w-72 flex-shrink-0 flex-col border-l border-zinc-800/60 bg-zinc-950">
+    <div className="flex h-full w-96 flex-shrink-0 flex-col border-l border-zinc-800/60 bg-zinc-950">
       <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
         <span className="text-xs text-zinc-500">高管详情</span>
         <button
@@ -278,27 +273,21 @@ export default function ProfilePanel({ execId, onClose, onSelectExec }: Props) {
             onClick={handleKnown}
             className={`flex-1 rounded-lg py-1.5 text-xs font-medium transition ${
               knownState === 'done'
-                ? 'bg-emerald-900/40 text-emerald-400 cursor-default'
+                ? 'bg-yellow-400/15 text-yellow-400 ring-1 ring-yellow-400/40 cursor-default'
                 : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
             }`}
           >
-            {knownState === 'done' ? '✓ 已认识' : '我认识'}
+            我认识TA
           </button>
           <button
-            onClick={() => setModal('error')}
-            className="flex-1 rounded-lg bg-zinc-800 py-1.5 text-xs font-medium text-zinc-300 transition hover:bg-zinc-700"
-          >
-            报错
-          </button>
-          <button
-            onClick={handleOutdated}
+            onClick={() => { if (errorState === 'idle') setModal('error') }}
             className={`flex-1 rounded-lg py-1.5 text-xs font-medium transition ${
-              outdatedState === 'done'
-                ? 'bg-red-900/40 text-red-400 cursor-default'
+              errorState === 'done'
+                ? 'bg-red-900/30 text-red-400 cursor-default'
                 : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
             }`}
           >
-            {outdatedState === 'done' ? '❗ 已标记' : '信息过时'}
+            {errorState === 'done' ? '报错 ❗' : '报错'}
           </button>
         </div>
       )}
@@ -308,15 +297,7 @@ export default function ProfilePanel({ execId, onClose, onSelectExec }: Props) {
           title={`报错：${exec?.name ?? ''}`}
           placeholder="请描述错误信息，例如姓名有误、职位不符…"
           requireText
-          onSubmit={async (note) => { await submitReport(execId, 'error', note) }}
-          onClose={() => setModal(null)}
-        />
-      )}
-      {modal === 'outdated' && (
-        <FeedbackModal
-          title={`信息过时：${exec?.name ?? ''}`}
-          placeholder="请说明哪些信息已过时（可选）"
-          onSubmit={async (note) => { await submitReport(execId, 'outdated', note || undefined) }}
+          onSubmit={async (note) => { await submitReport(execId, 'error', note); setErrorState('done') }}
           onClose={() => setModal(null)}
         />
       )}

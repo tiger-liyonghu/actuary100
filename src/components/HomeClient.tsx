@@ -161,7 +161,7 @@ export default function HomeClient() {
           )}
         </div>
 
-        <div className="mt-auto border-t border-zinc-800/50 pt-4 text-xs text-zinc-700">
+        <div className="mt-auto border-t border-zinc-800/50 pb-4 pt-4 text-xs text-zinc-700">
           <div>1,494+ {t('execs')}</div>
           <div className="mt-0.5">15,204+ {t('relations')}</div>
           <div className="mt-0.5">191 {t('companies')}</div>
