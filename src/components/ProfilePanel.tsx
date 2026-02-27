@@ -67,7 +67,7 @@ export default function ProfilePanel({ execId, onClose, onSelectExec }: Props) {
   // ── Company view ──────────────────────────────────────────────────────────
   if (view.type === 'company') {
     return (
-      <div className="flex h-full w-96 flex-shrink-0 flex-col border-l border-zinc-800/60 bg-zinc-950">
+      <div className="flex h-full w-full flex-col border-l border-zinc-800/60 bg-zinc-950">
         <div className="flex items-center gap-2 border-b border-zinc-800 px-4 py-3">
           <button
             onClick={() => setView({ type: 'exec' })}
@@ -131,7 +131,7 @@ export default function ProfilePanel({ execId, onClose, onSelectExec }: Props) {
 
   // ── Exec view ─────────────────────────────────────────────────────────────
   return (
-    <div className="flex h-full w-96 flex-shrink-0 flex-col border-l border-zinc-800/60 bg-zinc-950">
+    <div className="flex h-full w-full flex-col border-l border-zinc-800/60 bg-zinc-950">
       <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
         <span className="text-xs text-zinc-500">高管详情</span>
         <button

@@ -48,7 +48,15 @@ export default function EgoGraph({ center, nodes, edges }: Props) {
     frame: number
   } | null>(null)
   const [selected, setSelected] = useState<Executive | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
   const router = useRouter()
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   useEffect(() => {
     const container = containerRef.current
@@ -318,8 +326,8 @@ export default function EgoGraph({ center, nodes, edges }: Props) {
     <div className="relative h-full w-full bg-zinc-950">
       <div ref={containerRef} className="absolute inset-0" />
 
-      {/* Legend */}
-      <div className="absolute bottom-5 left-5 rounded-xl border border-zinc-800 bg-zinc-950/80 p-3 text-xs backdrop-blur-sm">
+      {/* Legend – hidden on mobile */}
+      <div className="absolute bottom-5 left-5 hidden rounded-xl border border-zinc-800 bg-zinc-950/80 p-3 text-xs backdrop-blur-sm md:block">
         <div className="mb-1.5 font-semibold text-zinc-400">关系类型</div>
         {([['colleague','同事'], ['alumni','校友'], ['former','前同事']] as const).map(([t, label]) => (
           <div key={t} className="flex items-center gap-2 py-0.5">
@@ -337,13 +345,17 @@ export default function EgoGraph({ center, nodes, edges }: Props) {
       </div>
 
       {/* Stats */}
-      <div className="absolute right-5 top-5 rounded-xl border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs text-zinc-500 backdrop-blur-sm">
+      <div className="absolute right-4 top-4 rounded-xl border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs text-zinc-500 backdrop-blur-sm md:right-5 md:top-5">
         {nodes.length} 人 &nbsp;·&nbsp; {edges.length} 条关系
       </div>
 
-      {/* Selected panel */}
+      {/* Selected panel – mobile: full-width bottom card, desktop: bottom-right float */}
       {selected && (
-        <div className="absolute bottom-5 right-5 w-64 rounded-xl border border-zinc-700 bg-zinc-900/95 p-4 shadow-2xl backdrop-blur-sm">
+        <div className={
+          isMobile
+            ? 'absolute bottom-0 left-0 right-0 rounded-t-2xl border-t border-zinc-700 bg-zinc-900/98 p-4 shadow-2xl backdrop-blur-md'
+            : 'absolute bottom-5 right-5 w-64 rounded-xl border border-zinc-700 bg-zinc-900/95 p-4 shadow-2xl backdrop-blur-sm'
+        }>
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-3">
               <div
